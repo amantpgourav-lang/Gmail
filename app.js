@@ -389,7 +389,7 @@ function renderAccountPopup(){
       <div class="account-row-avatar" style="background:${acc.avatarColor}">${initials(acc.name)}</div>
       <div class="account-row-text">
         <div class="account-row-name">${escapeHtml(acc.name)}</div>
-        <a class="account-row-email" href="https://accounts.google.com/" target="_blank" rel="noopener noreferrer" style="display:block;text-decoration:none;color:inherit" onclick="event.stopPropagation()">${escapeHtml(acc.email)}</a>
+        <a class="account-row-email" href="https://accounts.google.com/" target="_blank" rel="noopener noreferrer" style="display:block;text-decoration:none;color:inherit;position:relative;z-index:2">${escapeHtml(acc.email)}</a>
       </div>
     </div>
   `).join('');
@@ -398,7 +398,10 @@ function renderAccountPopup(){
     `☁️ ${ACCOUNT.storagePercent}% of ${ACCOUNT.storageTotal} used`;
 
   document.querySelectorAll('#otherAccountsList .account-row').forEach(row=>{
-    row.addEventListener('click', ()=>{
+    row.addEventListener('click', (event)=>{
+      // Clicking the email address must follow its Google Accounts link,
+      // not trigger the surrounding account-row selection handler.
+      if (event.target.closest('a.account-row-email')) return;
       showToast(`Switched to ${row.dataset.email}`);
       closeAccountPopup();
     });
