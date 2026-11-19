@@ -10,7 +10,7 @@ const ACCOUNT = {
   email: "719MM1041@nitrkl.ac.in",
   avatarColor: "#4285F4",
   otherAccounts: [
-    { name: "Aman Beta", email: "amanbeta@example.com", avatarColor: "#8430ce" }
+    { name: "Aman Beta", email: "amanbeta115@gmail.com", avatarColor: "#8430ce" }
   ],
   storagePercent: 16,
   storageTotal: "15 GB"
@@ -389,7 +389,7 @@ function renderAccountPopup(){
       <div class="account-row-avatar" style="background:${acc.avatarColor}">${initials(acc.name)}</div>
       <div class="account-row-text">
         <div class="account-row-name">${escapeHtml(acc.name)}</div>
-        <div class="account-row-email">${escapeHtml(acc.email)}</div>
+        <a class="account-row-email" href="https://accounts.google.com/" target="_blank" rel="noopener noreferrer" style="display:block;text-decoration:none;color:inherit" onclick="event.stopPropagation()">${escapeHtml(acc.email)}</a>
       </div>
     </div>
   `).join('');
