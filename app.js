@@ -235,7 +235,7 @@ function renderTabs(){
     const latest = group.slice().sort((a,b)=>new Date(b.date)-new Date(a.date))[0];
     let meta = tab.querySelector('.tab-meta');
     if(!meta){ meta=document.createElement('span'); meta.className='tab-meta'; tab.appendChild(meta); }
-    meta.innerHTML = `<span class="tab-unread">${unread ? unread+' new' : ''}</span><span class="tab-preview">${latest ? escapeHtml(latest.from+' — '+latest.preview).slice(0,65) : ''}</span>`;
+    meta.innerHTML = `<span class="tab-heading"><span class="tab-label">${escapeHtml(category)}</span><span class="tab-unread">${unread ? unread+' new' : ''}</span></span><span class="tab-preview">${latest ? escapeHtml(latest.from+' — '+latest.preview).slice(0,65) : ''}</span>`;
   });
 }
 
