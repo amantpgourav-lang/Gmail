@@ -174,27 +174,40 @@
 <!-- ===================== COMPOSE WINDOW ===================== -->
 <div class="compose" id="composeWindow" hidden>
   <div class="compose-header">
-    <span>New Message</span>
+    <span id="composeTitle">New Message</span>
     <div class="compose-header-actions">
-      <button class="icon-btn small" id="minimizeCompose" title="Minimize">
-        <svg viewBox="0 0 24 24"><path d="M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-      </button>
-      <button class="icon-btn small" id="closeCompose" title="Close">
-        <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-      </button>
+      <button class="icon-btn small" id="minimizeCompose" title="Minimize" aria-label="Minimize">−</button>
+      <button class="icon-btn small" id="popoutCompose" title="Pop out" aria-label="Pop out">↗</button>
+      <button class="icon-btn small" id="closeCompose" title="Close" aria-label="Close">×</button>
     </div>
   </div>
   <div class="compose-body">
-    <input type="text" id="composeTo" placeholder="To" class="compose-field">
+    <div class="compose-recipient-line">
+      <input type="text" id="composeTo" placeholder="To" class="compose-field" autocomplete="off">
+      <div class="compose-cc-links"><button type="button" id="showCc">Cc</button><button type="button" id="showBcc">Bcc</button></div>
+    </div>
+    <input type="text" id="composeCc" placeholder="Cc" class="compose-field optional-recipient" hidden>
+    <input type="text" id="composeBcc" placeholder="Bcc" class="compose-field optional-recipient" hidden>
     <input type="text" id="composeSubject" placeholder="Subject" class="compose-field">
-    <textarea id="composeBody" placeholder="Write your message..." class="compose-textarea"></textarea>
+    <div id="composeBody" class="compose-textarea" contenteditable="true" role="textbox" aria-label="Message body" data-placeholder="Write your message..."></div>
+  </div>
+  <div class="compose-formatbar" id="composeFormatbar" aria-label="Formatting options">
+    <button type="button" data-cmd="undo" title="Undo">↶</button><button type="button" data-cmd="redo" title="Redo">↷</button>
+    <select id="composeFont" aria-label="Font family"><option value="Arial">Sans Serif</option><option value="Georgia">Serif</option><option value="monospace">Fixed width</option><option value="cursive">Cursive</option></select>
+    <select id="composeSize" aria-label="Font size"><option value="3">Normal</option><option value="2">Small</option><option value="4">Large</option><option value="5">Huge</option></select>
+    <button type="button" data-cmd="bold" title="Bold"><b>B</b></button><button type="button" data-cmd="italic" title="Italic"><i>I</i></button><button type="button" data-cmd="underline" title="Underline"><u>U</u></button>
+    <input type="color" id="composeColor" title="Text color" value="#202124">
+    <button type="button" data-cmd="justifyLeft" title="Align left">≡</button><button type="button" data-cmd="insertUnorderedList" title="Bulleted list">•≡</button><button type="button" data-cmd="insertOrderedList" title="Numbered list">1≡</button><button type="button" data-cmd="outdent" title="Decrease indent">⇤</button><button type="button" data-cmd="indent" title="Increase indent">⇥</button><button type="button" data-cmd="removeFormat" title="Clear formatting">Tx</button>
   </div>
   <div class="compose-footer">
-    <button class="send-btn" id="sendBtn">Send</button>
-    <button class="icon-btn small" id="discardCompose" title="Discard draft">
-      <svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2m2 0v14a1 1 0 01-1 1H7a1 1 0 01-1-1V6h12z" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
-    </button>
+    <button class="send-btn" id="sendBtn">Send</button><button class="send-drop" id="sendOptions" title="Send options">▾</button>
+    <button class="icon-btn small compose-tool" id="attachCompose" title="Attach file">📎</button><input type="file" id="composeAttachment" hidden multiple>
+    <button class="icon-btn small compose-tool" id="insertLink" title="Insert link">🔗</button><button class="icon-btn small compose-tool" id="insertEmoji" title="Insert emoji">☺</button><button class="icon-btn small compose-tool" id="insertImage" title="Insert image">▧</button><input type="file" id="composeImage" accept="image/*" hidden>
+    <button class="icon-btn small compose-tool" id="moreCompose" title="More options">⋮</button>
+    <span class="compose-footer-spacer"></span>
+    <button class="icon-btn small" id="discardCompose" title="Discard draft">♲</button>
   </div>
+  <div class="compose-attachment-list" id="composeAttachmentList"></div>
 </div>
 
 <div class="toast" id="toast"></div>

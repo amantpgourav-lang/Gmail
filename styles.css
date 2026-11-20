@@ -499,3 +499,46 @@ body{background:#f6f9ff;}
   #tabs .tab .tab-meta{gap:1px;}
   .email-row .row-from{flex:0 0 105px;width:105px;}
 }
+
+
+/* Email reading layout: Gmail-like left-aligned message canvas */
+.detail-body{max-width:none;width:100%;margin:0;padding:24px clamp(28px,4vw,72px) 60px;box-sizing:border-box;}
+.detail-subject{margin-bottom:20px;text-align:left;}
+.detail-meta{width:100%;align-items:flex-start;}
+.detail-date{margin-left:auto;text-align:right;}
+.detail-content{max-width:1200px;margin-left:52px;text-align:left;overflow-wrap:anywhere;}
+.detail-reply-bar{margin-left:52px;}
+@media(max-width:700px){.detail-body{padding:20px 18px 40px}.detail-content,.detail-reply-bar{margin-left:0}.detail-subject{font-size:19px}}
+
+/* Gmail-style compose and reply dialogs */
+.compose{width:min(600px,calc(100vw - 32px));right:32px;bottom:0;max-height:min(82vh,720px);border-radius:10px 10px 0 0;overflow:hidden;}
+.compose-header{min-height:42px;padding:8px 14px;background:#f2f6fc;color:#202124;}
+.compose-header-actions .icon-btn{font-size:19px;line-height:1;min-width:30px;}
+.compose-body{padding:0 16px;min-height:260px;}
+.compose-recipient-line{display:flex;align-items:center;gap:8px;border-bottom:1px solid #e5e7eb;}
+.compose-recipient-line .compose-field{border:0;flex:1;min-width:0;}
+.compose-cc-links{display:flex;gap:8px;white-space:nowrap;}
+.compose-cc-links button{font-size:12px;color:#5f6368;padding:4px 0;}
+.compose-cc-links button:hover{color:#1a73e8;text-decoration:underline;}
+.compose-field{min-height:38px;padding:9px 0;border-bottom:1px solid #e5e7eb;background:transparent;}
+.compose-field.optional-recipient[hidden]{display:none;}
+.compose-textarea{min-height:250px;flex:1;padding:14px 0;outline:0;border:0;white-space:pre-wrap;overflow-wrap:anywhere;font-size:14px;line-height:1.55;}
+.compose-textarea:empty:before{content:attr(data-placeholder);color:#9aa0a6;pointer-events:none;}
+.compose-formatbar{display:flex;align-items:center;gap:3px;flex-wrap:wrap;margin:0 16px 2px;padding:5px 8px;background:#f1f3f4;border-radius:24px;}
+.compose-formatbar button{min-width:27px;height:27px;border-radius:5px;color:#444746;font-size:14px;}
+.compose-formatbar button:hover{background:#e0e3e7;}
+.compose-formatbar select{height:27px;max-width:112px;border:0;background:transparent;color:#444746;font-size:12px;outline:0;}
+.compose-formatbar input[type=color]{width:24px;height:24px;border:0;padding:0;background:transparent;}
+.compose-footer{gap:4px;padding:10px 16px 12px;}
+.send-btn{border-radius:20px 0 0 20px;padding:10px 22px;background:#0b57d0;}
+.send-drop{height:36px;margin-left:-4px;padding:0 10px;border-radius:0 20px 20px 0;background:#0b57d0;color:#fff;}
+.send-drop:hover,.send-btn:hover{background:#0842a0;}
+.compose-tool{color:#5f6368;}
+.compose-footer-spacer{flex:1;}
+.compose-attachment-list{padding:0 16px 8px;font-size:12px;color:#5f6368;}
+.compose.popped-out{width:min(900px,calc(100vw - 40px));right:20px;bottom:20px;max-height:calc(100vh - 100px);border-radius:10px;}
+.compose.minimized{max-height:44px;}
+.compose.minimized .compose-body,.compose.minimized .compose-footer,.compose.minimized .compose-formatbar,.compose.minimized .compose-attachment-list{display:none;}
+body.dark-theme .compose-header,body.dark-theme .compose-formatbar{background:#303134;color:#e8eaed;}
+body.dark-theme .compose-formatbar button,body.dark-theme .compose-formatbar select{color:#e8eaed;}
+body.dark-theme .compose-recipient-line,body.dark-theme .compose-field{border-color:#3c4043;}

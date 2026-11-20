@@ -303,14 +303,32 @@ function renderList(){
 
 function escapeHtml(str){
   const div = document.createElement('div');
-  div.textContent = str;
+  div.textContent = String(str ?? '');
   return div.innerHTML;
 }
+function safeMessageHtml(value){
+  const raw=String(value ?? '');
+  if(!/<(p|br|div|b|strong|i|em|u|ul|ol|li|a|blockquote|span)\b/i.test(raw)) return escapeHtml(raw).replace(/\n/g,'<br>');
+  const parser=new DOMParser(); const doc=parser.parseFromString(raw,'text/html');
+  const allowed=new Set(['P','BR','DIV','B','STRONG','I','EM','U','UL','OL','LI','A','BLOCKQUOTE','SPAN']);
+  const walk=node=>{ for(const child of [...node.childNodes]){
+    if(child.nodeType===Node.ELEMENT_NODE){
+      if(!allowed.has(child.tagName)){child.replaceWith(document.createTextNode(child.textContent));continue;}
+      const href=child.tagName==='A'?(child.getAttribute('href')||''):'';
+      [...child.attributes].forEach(a=>child.removeAttribute(a.name));
+      if(child.tagName==='A'){if(/^https?:\/\//i.test(href)) child.setAttribute('href',href); else {child.replaceWith(document.createTextNode(child.textContent));continue;}}
+      walk(child);
+    } else if(child.nodeType!==Node.TEXT_NODE) child.remove();
+  }}; walk(doc.body); return doc.body.innerHTML;
+}
+function composeBodyHtml(){return document.getElementById('composeBody').innerHTML.trim();}
+function composeBodyText(){return document.getElementById('composeBody').innerText.trim();}
+
 
 function openEmail(id){
   const email = state.emails.find(e=>e.id===id);
   if (!email) return;
-  if(email.isDraft){ openCompose({to:email.to||'',subject:email.subject==='(no subject)'?'':email.subject,body:email.body||'',draftId:email.id}); return; }
+  if(email.isDraft){ openCompose({to:email.to||'',cc:email.cc||'',bcc:email.bcc||'',subject:email.subject==='(no subject)'?'':email.subject,body:email.body||'',draftId:email.id,mode:email.composeMode||'new',replyTo:email.replyTo||null}); return; }
   email.read = true;
   state.openEmailId = id;
 
@@ -337,7 +355,7 @@ function openEmail(id){
       <div class="detail-date">${relativeDate(email.date)}</div>
     </div>
     <div class="detail-popup" id="detailPopup" hidden>${buildDetailsPopup(email)}</div>
-    <div class="detail-content">${escapeHtml(email.body)}</div>
+    <div class="detail-content">${safeMessageHtml(email.body)}</div>
     <div class="detail-reply-bar">
       <button class="reply-btn" id="replyBtn">↩ Reply</button>
       <button class="reply-btn" id="forwardBtn">➜ Forward</button>
@@ -375,10 +393,10 @@ function openEmail(id){
   };
 
   document.getElementById('replyBtn').onclick = ()=>{
-    openCompose({to: email.fromEmail, subject: `Re: ${email.subject}`, body: `\n\nOn ${relativeDate(email.date)}, ${email.from} wrote:\n> ${email.body}`});
+    openCompose({to: email.fromEmail, subject: `Re: ${email.subject.replace(/^Re:\s*/i,'')}`, body: '', mode:'reply', replyTo:email.id});
   };
   document.getElementById('forwardBtn').onclick = ()=>{
-    openCompose({to: '', subject: `Fwd: ${email.subject}`, body: `\n\n---------- Forwarded message ----------\nFrom: ${email.from} <${email.fromEmail}>\n\n${email.body}`});
+    openCompose({to: '', subject: `Fwd: ${email.subject}`, body: `---------- Forwarded message ----------\nFrom: ${email.from} <${email.fromEmail}>\n\n${email.body}`, mode:'forward', replyTo:email.id});
   };
 
   renderSidebarCounts();
@@ -394,36 +412,32 @@ function closeDetail(){
 }
 
 // -------------------- compose --------------------
-function openCompose({to='', subject='', body='', draftId=null} = {}){
-  closeCompose.draftId=draftId; closeCompose.skipDraft=false;
-  const win = document.getElementById('composeWindow');
-  win.hidden = false;
-  win.classList.remove('minimized');
-  document.getElementById('composeTo').value = to;
-  document.getElementById('composeSubject').value = subject;
-  document.getElementById('composeBody').value = body;
-  document.getElementById('composeBody').focus();
+function openCompose({to='',cc='',bcc='',subject='',body='',draftId=null,mode='new',replyTo=null} = {}){
+  closeCompose.draftId=draftId; closeCompose.skipDraft=false; closeCompose.mode=mode; closeCompose.replyTo=replyTo;
+  const win=document.getElementById('composeWindow'); win.hidden=false; win.classList.remove('minimized','popped-out');
+  document.getElementById('composeTitle').textContent=mode==='reply'?'Reply':mode==='forward'?'Forward':'New Message';
+  document.getElementById('composeTo').value=to; document.getElementById('composeCc').value=cc; document.getElementById('composeBcc').value=bcc;
+  document.getElementById('composeCc').hidden=!cc; document.getElementById('composeBcc').hidden=!bcc;
+  document.getElementById('showCc').hidden=!!cc; document.getElementById('showBcc').hidden=!!bcc;
+  document.getElementById('composeSubject').value=subject;
+  const editor=document.getElementById('composeBody'); editor.innerHTML='';
+  if(body){ if(/<([a-z][\s\S]*?)>/i.test(body)) editor.innerHTML=safeMessageHtml(body); else editor.textContent=body; }
+  document.getElementById('composeAttachmentList').textContent='';
+  editor.focus();
 }
 function closeCompose(){
-  const win = document.getElementById('composeWindow');
-  const to=document.getElementById('composeTo').value.trim();
-  const subject=document.getElementById('composeSubject').value.trim();
-  const body=document.getElementById('composeBody').value.trim();
-  if(!closeCompose.skipDraft && (to || subject || body)){
-    const draft={id:closeCompose.draftId||('draft-'+Date.now()),from:ACCOUNT.name,fromEmail:ACCOUNT.email,to,subject:subject||'(no subject)',preview:body.slice(0,120),body,date:new Date().toISOString(),label:'Primary',tab:'sent',folder:'drafts',isDraft:true,read:true,starred:false,important:false,archived:false,deleted:false};
-    const existing=state.emails.find(e=>e.isDraft && e.id===draft.id);
-    if(existing) Object.assign(existing,draft); else state.emails.unshift(draft);
-    closeCompose.draftId=draft.id;
-    showToast('Draft saved');
+  const win=document.getElementById('composeWindow');
+  const to=document.getElementById('composeTo').value.trim(), cc=document.getElementById('composeCc').value.trim(), bcc=document.getElementById('composeBcc').value.trim();
+  const subject=document.getElementById('composeSubject').value.trim(), body=composeBodyHtml(), bodyText=composeBodyText();
+  if(!closeCompose.skipDraft && (to||cc||bcc||subject||bodyText)){
+    const draft={id:closeCompose.draftId||('draft-'+Date.now()),from:ACCOUNT.name,fromEmail:ACCOUNT.email,to,cc,bcc,subject:subject||'(no subject)',preview:bodyText.slice(0,120),body,date:new Date().toISOString(),label:'Primary',tab:'sent',folder:'drafts',isDraft:true,read:true,starred:false,important:false,archived:false,deleted:false,composeMode:closeCompose.mode||'new',replyTo:closeCompose.replyTo||null};
+    const existing=state.emails.find(e=>e.isDraft && e.id===draft.id); if(existing) Object.assign(existing,draft); else state.emails.unshift(draft);
+    closeCompose.draftId=draft.id; showToast('Draft saved');
   }
-  closeCompose.skipDraft=false;
-  win.hidden = true;
-  win.classList.remove('minimized');
-  render();
+  closeCompose.skipDraft=false; win.hidden=true; win.classList.remove('minimized','popped-out'); render();
 }
-function toggleMinimizeCompose(){
-  document.getElementById('composeWindow').classList.toggle('minimized');
-}
+function toggleMinimizeCompose(){document.getElementById('composeWindow').classList.toggle('minimized');}
+function runComposeCommand(command,value=null){document.getElementById('composeBody').focus();document.execCommand(command,false,value);}
 
 // -------------------- account switcher --------------------
 function renderAccountPopup(){
@@ -532,6 +546,22 @@ function initEvents(){
 
   // compose
   document.getElementById('composeBtn').addEventListener('click', ()=>openCompose());
+  document.getElementById('showCc').addEventListener('click',()=>{document.getElementById('composeCc').hidden=false;document.getElementById('showCc').hidden=true;document.getElementById('composeCc').focus();});
+  document.getElementById('showBcc').addEventListener('click',()=>{document.getElementById('composeBcc').hidden=false;document.getElementById('showBcc').hidden=true;document.getElementById('composeBcc').focus();});
+  document.querySelectorAll('#composeFormatbar [data-cmd]').forEach(btn=>btn.addEventListener('click',()=>runComposeCommand(btn.dataset.cmd)));
+  document.getElementById('composeFont').addEventListener('change',e=>runComposeCommand('fontName',e.target.value));
+  document.getElementById('composeSize').addEventListener('change',e=>runComposeCommand('fontSize',e.target.value));
+  document.getElementById('composeColor').addEventListener('input',e=>runComposeCommand('foreColor',e.target.value));
+  document.getElementById('popoutCompose').addEventListener('click',()=>document.getElementById('composeWindow').classList.toggle('popped-out'));
+  document.getElementById('sendOptions').addEventListener('click',()=>showToast('Send options are not connected in this local interface'));
+  document.getElementById('attachCompose').addEventListener('click',()=>document.getElementById('composeAttachment').click());
+  document.getElementById('composeAttachment').addEventListener('change',e=>{const names=[...e.target.files].map(f=>f.name);document.getElementById('composeAttachmentList').textContent=names.join(' · ');});
+  document.getElementById('insertLink').addEventListener('click',()=>{const url=prompt('Enter link URL');if(url && /^https?:\/\//i.test(url))runComposeCommand('createLink',url);});
+  document.getElementById('insertEmoji').addEventListener('click',()=>{document.getElementById('composeBody').focus();document.execCommand('insertText',false,'😊');});
+  document.getElementById('insertImage').addEventListener('click',()=>document.getElementById('composeImage').click());
+  document.getElementById('composeImage').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{document.getElementById('composeBody').focus();document.execCommand('insertImage',false,r.result);};r.readAsDataURL(f);});
+  document.getElementById('moreCompose').addEventListener('click',()=>showToast('Additional compose options are not available locally'));
+
   document.getElementById('closeCompose').addEventListener('click', closeCompose);
   document.getElementById('minimizeCompose').addEventListener('click', (ev)=>{
     ev.stopPropagation();
@@ -549,14 +579,17 @@ function initEvents(){
   document.getElementById('sendBtn').addEventListener('click', ()=>{
     const to = document.getElementById('composeTo').value.trim();
     const subject = document.getElementById('composeSubject').value.trim();
-    const body = document.getElementById('composeBody').value.trim();
+    const body = composeBodyHtml();
+    const bodyText = composeBodyText();
+    const cc = document.getElementById('composeCc').value.trim();
+    const bcc = document.getElementById('composeBcc').value.trim();
     if (!to) { showToast('Add a recipient first'); return; }
     const now = new Date().toISOString();
     if(closeCompose.draftId) state.emails=state.emails.filter(e=>e.id!==closeCompose.draftId);
     closeCompose.skipDraft=true; closeCompose.draftId=null;
     const message = {
-      id: 'sent-' + Date.now(), from: ACCOUNT.name, fromEmail: ACCOUNT.email, to,
-      subject: subject || '(no subject)', preview: body.slice(0,120), body, date: now,
+      id: 'sent-' + Date.now(), from: ACCOUNT.name, fromEmail: ACCOUNT.email, to, cc, bcc,
+      subject: subject || '(no subject)', preview: bodyText.slice(0,120), body, date: now, replyTo:closeCompose.replyTo||null,
       label: 'Primary', tab: 'sent', folder: 'sent', sentByMe: true, read: true,
       starred: false, important: false, archived: false, deleted: false
     };
