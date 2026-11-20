@@ -441,3 +441,31 @@ body{background:#f6f9ff;}
 .email-detail{border-radius:0 0 18px 18px;}
 @media(max-width:900px){.topbar-left{min-width:190px;width:auto}.topbar-search{padding:0 8px}.sidebar{width:220px}.tab{width:auto;min-width:130px}}
 @media(max-width:600px){.topbar{padding:0 8px;gap:4px}.topbar-left{min-width:auto}.brand-logo{width:82px}.topbar-search{padding:0 4px}.search-box{height:42px}.sidebar{width:72px}.main{margin-right:0;border-radius:14px 14px 0 0}.row-from{width:105px}.tab{min-width:90px;padding:12px 8px}}
+
+/* Extended Gmail-style navigation and category previews */
+.extra-nav{margin-top:2px;}
+.extra-nav .nav-item{gap:16px;}
+.nav-symbol{width:20px;flex:0 0 20px;text-align:center;color:var(--text-secondary);font-size:18px;line-height:1;}
+.labels-heading{display:flex;align-items:center;justify-content:space-between;padding:8px 24px 6px;color:var(--text-secondary);font-size:14px;font-weight:500;}
+.labels-heading button{font-size:21px;color:var(--text-secondary);padding:0 5px;border-radius:50%;}
+.labels-heading button:hover{background:var(--hover);}
+.tab{position:relative;min-width:0;flex:1;justify-content:flex-start;align-items:flex-start;flex-wrap:wrap;gap:7px;padding:12px 16px 10px;min-height:58px;text-align:left;}
+.tab-meta{display:flex;flex-direction:column;gap:3px;min-width:0;flex:1;overflow:hidden;}
+.tab-unread{font-size:11px;font-weight:600;color:var(--green);min-height:13px;white-space:nowrap;}
+.tab-preview{font-size:11px;font-weight:400;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
+.label-chip{display:none !important;}
+.list-toolbar.has-selection{background:#e8f0fe;border-bottom-color:var(--border);}
+.list-toolbar.has-selection .list-range{font-weight:500;}
+.email-row{gap:12px;}
+.email-row .row-content{min-width:0;}
+.email-row .row-from{width:200px;}
+@media(max-width:760px){
+  .tab{padding:10px 8px;gap:5px;}
+  .tab-preview{display:none;}
+  .row-from{width:105px !important;}
+  .extra-nav .nav-item{gap:12px;}
+}
+.sidebar-more{display:block;margin:5px 0 8px 52px;padding:5px 10px;border-radius:18px;color:var(--text-secondary);font-size:13px;text-align:left;}
+.sidebar-more:hover{background:var(--hover);}
+#extraNav:not(.expanded) .nav-item:nth-child(n+7){display:none;}
+#extraNav.expanded .nav-item{display:flex;}

@@ -141,20 +141,38 @@ function getLabels(){
 }
 
 function getFilteredEmails(){
+  const now = Date.now();
+  state.emails.forEach(e=>{ if(e.snoozedUntil && new Date(e.snoozedUntil).getTime() <= now) e.snoozedUntil = null; });
   let list = state.emails;
 
   if (state.filter === "inbox") {
-    list = list.filter(e => e.tab !== 'sent' && !e.archived && !e.deleted);
+    list = list.filter(e => e.tab !== 'sent' && !e.archived && !e.deleted && !e.spam && !e.snoozedUntil);
     list = list.filter(e => e.label === state.tab);
   } else if (state.filter === "starred") {
-    list = list.filter(e => e.starred && !e.deleted);
+    list = list.filter(e => e.starred && !e.deleted && !e.spam);
   } else if (state.filter === "sent") {
-    list = list.filter(e => e.folder === 'sent' && !e.deleted);
+    list = list.filter(e => (e.folder === 'sent' || e.sentByMe) && !e.deleted);
   } else if (state.filter === "important") {
-    list = list.filter(e => e.important && !e.deleted);
+    list = list.filter(e => e.important && !e.deleted && !e.spam);
+  } else if (state.filter === "snoozed") {
+    list = list.filter(e => e.snoozedUntil && new Date(e.snoozedUntil) > new Date() && !e.deleted);
+  } else if (state.filter === "drafts") {
+    list = list.filter(e => e.isDraft && !e.deleted);
+  } else if (state.filter === "purchases") {
+    list = list.filter(e => /order|purchase|payment|receipt|delivery|booking/i.test(e.subject + ' ' + e.preview) && !e.deleted && !e.archived);
+  } else if (state.filter === "scheduled") {
+    list = list.filter(e => e.scheduled && !e.deleted);
+  } else if (state.filter === "allmail") {
+    list = list.filter(e => !e.deleted && !e.spam);
+  } else if (state.filter === "spam") {
+    list = list.filter(e => e.spam && !e.deleted);
+  } else if (state.filter === "trash") {
+    list = list.filter(e => e.deleted);
+  } else if (["Social","Updates","Forums","Promotions"].includes(state.filter)) {
+    list = list.filter(e => e.label === state.filter && !e.deleted && !e.spam && !e.archived);
   } else if (state.filter.startsWith("label:")) {
     const lbl = state.filter.slice(6);
-    list = list.filter(e => e.label === lbl && !e.deleted);
+    list = list.filter(e => (e.label === lbl || (e.customLabels||[]).includes(lbl)) && !e.deleted);
   }
 
   if (state.search.trim()) {
@@ -172,13 +190,15 @@ function getFilteredEmails(){
 
 // -------------------- rendering --------------------
 function renderSidebarCounts(){
-  const unread = state.emails.filter(e=>!e.read && !e.archived && !e.deleted && !e.sentByMe).length;
+  const unread = state.emails.filter(e=>!e.read && !e.archived && !e.deleted && !e.spam && !e.sentByMe && !e.snoozedUntil).length;
   document.getElementById('inboxCount').textContent = unread > 0 ? unread : "";
+  const counts={Social:0,Updates:0,Forums:0,Promotions:0};
+  state.emails.forEach(e=>{if(counts[e.label]!==undefined && !e.read && !e.deleted && !e.archived && !e.spam) counts[e.label]++;});
 }
 
 function renderLabels(){
   const el = document.getElementById('labelList');
-  const labels = getLabels();
+  const labels = Array.from(new Set([...getLabels(), ...(state.customLabels||[])]));
   el.innerHTML = labels.map(l => `
     <li class="nav-item" data-filter="label:${l}">
       <span class="label-dot" style="background:${LABEL_COLORS[l]||'#999'}"></span>
@@ -188,6 +208,9 @@ function renderLabels(){
   el.querySelectorAll('.nav-item').forEach(item=>{
     item.addEventListener('click', ()=>{
       state.filter = item.dataset.filter;
+      if (state.filter === 'subscriptions') { showToast('Subscription management is not connected to a mail provider'); return; }
+      if (state.filter === 'manage-labels') { showToast('Use the Labels section to create and apply labels'); return; }
+      if (["Social","Updates","Forums","Promotions"].includes(state.filter)) state.tab = state.filter;
       state.page = 0;
       closeDetail();
       setActiveNav(item);
@@ -203,7 +226,17 @@ function setActiveNav(activeEl){
 
 function renderTabs(){
   const showTabs = state.filter === "inbox";
-  document.getElementById('tabs').style.display = showTabs ? 'flex' : 'none';
+  const tabs = document.getElementById('tabs');
+  tabs.style.display = showTabs ? 'flex' : 'none';
+  tabs.querySelectorAll('.tab').forEach(tab=>{
+    const category = tab.dataset.tab;
+    const group = state.emails.filter(e=>e.label===category && !e.deleted && !e.archived && !e.spam && e.tab!=='sent');
+    const unread = group.filter(e=>!e.read).length;
+    const latest = group.slice().sort((a,b)=>new Date(b.date)-new Date(a.date))[0];
+    let meta = tab.querySelector('.tab-meta');
+    if(!meta){ meta=document.createElement('span'); meta.className='tab-meta'; tab.appendChild(meta); }
+    meta.innerHTML = `<span class="tab-unread">${unread ? unread+' new' : ''}</span><span class="tab-preview">${latest ? escapeHtml(latest.from+' — '+latest.preview).slice(0,65) : ''}</span>`;
+  });
 }
 
 function renderList(){
@@ -224,6 +257,9 @@ function renderList(){
   }
   emptyEl.hidden = true;
 
+  document.getElementById('selectAllCheckbox').checked = pageItems.length > 0 && pageItems.every(e=>state.selected.has(e.id));
+  document.getElementById('selectAllCheckbox').indeterminate = pageItems.some(e=>state.selected.has(e.id)) && !pageItems.every(e=>state.selected.has(e.id));
+  document.getElementById('listToolbar').classList.toggle('has-selection', state.selected.size > 0);
   listEl.innerHTML = pageItems.map(e => `
     <div class="email-row ${e.read ? '' : 'unread'} ${state.selected.has(e.id) ? 'selected':''}" data-id="${e.id}">
       <input type="checkbox" class="row-checkbox" data-id="${e.id}" ${state.selected.has(e.id)?'checked':''}>
@@ -233,7 +269,6 @@ function renderList(){
       ${e.important ? `<span class="row-important"><svg viewBox="0 0 24 24"><path d="M13 2L3 14h7l-1 8 11-13h-7l1-7z" fill="currentColor"/></svg></span>` : `<span class="row-important"></span>`}
       <span class="row-from">${e.from}</span>
       <span class="row-content">
-        <span class="label-chip" style="background:${LABEL_COLORS[e.label]||'#eee'}22;color:${LABEL_COLORS[e.label]||'#666'}">${e.label}</span>
         <span class="row-subject">${escapeHtml(e.subject)}</span> — <span class="email-preview">${escapeHtml(e.preview)}</span>
       </span>
       <span class="row-date">${relativeDate(e.date)}</span>
@@ -275,6 +310,7 @@ function escapeHtml(str){
 function openEmail(id){
   const email = state.emails.find(e=>e.id===id);
   if (!email) return;
+  if(email.isDraft){ openCompose({to:email.to||'',subject:email.subject==='(no subject)'?'':email.subject,body:email.body||'',draftId:email.id}); return; }
   email.read = true;
   state.openEmailId = id;
 
@@ -283,6 +319,7 @@ function openEmail(id){
   document.getElementById('listToolbar').style.display = 'none';
   const detail = document.getElementById('emailDetail');
   detail.hidden = false;
+  document.getElementById('detailRestore').hidden = state.filter !== 'trash' && state.filter !== 'spam';
 
   document.getElementById('detailBody').innerHTML = `
     <h1 class="detail-subject">${escapeHtml(email.subject)}</h1>
@@ -357,7 +394,8 @@ function closeDetail(){
 }
 
 // -------------------- compose --------------------
-function openCompose({to='', subject='', body=''} = {}){
+function openCompose({to='', subject='', body='', draftId=null} = {}){
+  closeCompose.draftId=draftId; closeCompose.skipDraft=false;
   const win = document.getElementById('composeWindow');
   win.hidden = false;
   win.classList.remove('minimized');
@@ -368,8 +406,20 @@ function openCompose({to='', subject='', body=''} = {}){
 }
 function closeCompose(){
   const win = document.getElementById('composeWindow');
+  const to=document.getElementById('composeTo').value.trim();
+  const subject=document.getElementById('composeSubject').value.trim();
+  const body=document.getElementById('composeBody').value.trim();
+  if(!closeCompose.skipDraft && (to || subject || body)){
+    const draft={id:closeCompose.draftId||('draft-'+Date.now()),from:ACCOUNT.name,fromEmail:ACCOUNT.email,to,subject:subject||'(no subject)',preview:body.slice(0,120),body,date:new Date().toISOString(),label:'Primary',tab:'sent',folder:'drafts',isDraft:true,read:true,starred:false,important:false,archived:false,deleted:false};
+    const existing=state.emails.find(e=>e.isDraft && e.id===draft.id);
+    if(existing) Object.assign(existing,draft); else state.emails.unshift(draft);
+    closeCompose.draftId=draft.id;
+    showToast('Draft saved');
+  }
+  closeCompose.skipDraft=false;
   win.hidden = true;
   win.classList.remove('minimized');
+  render();
 }
 function toggleMinimizeCompose(){
   document.getElementById('composeWindow').classList.toggle('minimized');
@@ -427,9 +477,12 @@ function applyToSelected(fn){
 // -------------------- event wiring --------------------
 function initEvents(){
   // nav items (inbox/starred/sent/important)
-  document.querySelectorAll('#navList .nav-item').forEach(item=>{
+  document.querySelectorAll('#navList .nav-item[data-filter], #extraNav .nav-item[data-filter]').forEach(item=>{
     item.addEventListener('click', ()=>{
       state.filter = item.dataset.filter;
+      if (state.filter === 'subscriptions') { showToast('Subscription management is not connected to a mail provider'); return; }
+      if (state.filter === 'manage-labels') { showToast('Use the Labels section to create and apply labels'); return; }
+      if (["Social","Updates","Forums","Promotions"].includes(state.filter)) state.tab = state.filter;
       state.page = 0;
       state.selected.clear();
       closeDetail();
@@ -463,6 +516,10 @@ function initEvents(){
   });
 
   // menu toggle (collapse sidebar)
+  document.getElementById('sidebarMore').addEventListener('click', ()=>{
+    const nav=document.getElementById('extraNav'); nav.classList.toggle('expanded');
+    document.getElementById('sidebarMore').textContent=nav.classList.contains('expanded')?'Less':'More';
+  });
   document.getElementById('menuToggle').addEventListener('click', ()=>{
     document.getElementById('sidebar').classList.toggle('collapsed');
   });
@@ -485,6 +542,7 @@ function initEvents(){
     if (win.classList.contains('minimized')) win.classList.remove('minimized');
   });
   document.getElementById('discardCompose').addEventListener('click', ()=>{
+    closeCompose.skipDraft=true; if(closeCompose.draftId) state.emails=state.emails.filter(e=>e.id!==closeCompose.draftId); closeCompose.draftId=null;
     closeCompose();
     showToast('Draft discarded');
   });
@@ -494,6 +552,8 @@ function initEvents(){
     const body = document.getElementById('composeBody').value.trim();
     if (!to) { showToast('Add a recipient first'); return; }
     const now = new Date().toISOString();
+    if(closeCompose.draftId) state.emails=state.emails.filter(e=>e.id!==closeCompose.draftId);
+    closeCompose.skipDraft=true; closeCompose.draftId=null;
     const message = {
       id: 'sent-' + Date.now(), from: ACCOUNT.name, fromEmail: ACCOUNT.email, to,
       subject: subject || '(no subject)', preview: body.slice(0,120), body, date: now,
@@ -522,6 +582,11 @@ function initEvents(){
     closeAccountPopup();
     showToast('Account sign-out is not connected');
   });
+
+  // Create custom labels
+  const createLabel = ()=>{ const name=prompt('Enter a label name'); if(!name || !name.trim()) return; const clean=name.trim(); if(!state.customLabels) state.customLabels=[]; if(!state.customLabels.includes(clean)) state.customLabels.push(clean); renderLabels(); showToast('Label created'); };
+  document.getElementById('createLabelBtn').addEventListener('click', createLabel);
+  document.getElementById('createLabelPlus').addEventListener('click', createLabel);
 
   // back button from detail view
   document.getElementById('backBtn').addEventListener('click', closeDetail);
@@ -553,6 +618,8 @@ function initEvents(){
   });
 
   // detail archive/delete
+  document.getElementById('detailSpam').addEventListener('click', ()=>{const e=state.emails.find(x=>x.id===state.openEmailId);if(e)e.spam=true;closeDetail();render();showToast('Moved to Spam');});
+  document.getElementById('detailRestore').addEventListener('click', ()=>{const e=state.emails.find(x=>x.id===state.openEmailId);if(e){e.deleted=false;e.spam=false;e.archived=false;}closeDetail();render();showToast('Conversation restored');});
   document.getElementById('detailArchive').addEventListener('click', ()=>{
     const e = state.emails.find(e=>e.id===state.openEmailId);
     if (e) e.archived = true;
@@ -562,10 +629,10 @@ function initEvents(){
   });
   document.getElementById('detailDelete').addEventListener('click', ()=>{
     const e = state.emails.find(e=>e.id===state.openEmailId);
-    if (e) e.deleted = true;
+    if (e) { if (state.filter === 'trash') { state.emails = state.emails.filter(x=>x.id!==e.id); } else e.deleted = true; }
     closeDetail();
     render();
-    showToast('Conversation deleted');
+    showToast(state.filter === 'trash' ? 'Conversation permanently deleted' : 'Moved to Trash');
   });
 
   // select all
@@ -585,14 +652,46 @@ function initEvents(){
     render();
   });
   document.getElementById('deleteSelected').addEventListener('click', ()=>{
-    applyToSelected(e=>e.deleted=true);
-    showToast('Deleted');
-    render();
+    if(state.filter==='trash') { const ids=state.selected; state.emails=state.emails.filter(e=>!ids.has(e.id)); state.selected.clear(); render(); showToast('Permanently deleted'); }
+    else { applyToSelected(e=>e.deleted=true); showToast('Moved to Trash'); render(); }
   });
   document.getElementById('markReadSelected').addEventListener('click', ()=>{
-    applyToSelected(e=>e.read=true);
-    showToast('Marked as read');
+    if(!state.selected.size){showToast('Select a conversation first');return;}
+    const selected=state.emails.filter(e=>state.selected.has(e.id));
+    const markAsRead=!selected.every(e=>e.read);
+    applyToSelected(e=>e.read=markAsRead);
+    showToast(markAsRead?'Marked as read':'Marked as unread');
     render();
+  });
+  document.getElementById('tasksSelected').addEventListener('click', ()=>{
+    applyToSelected(e=>{e.taskAdded=true;}); showToast('Added to tasks'); render();
+  });
+  document.getElementById('spamSelected').addEventListener('click', ()=>{ applyToSelected(e=>{e.spam=true;e.archived=false;}); showToast('Moved to Spam'); render(); });
+  document.getElementById('snoozeSelected').addEventListener('click', ()=>{
+    const choice = prompt('Snooze until (YYYY-MM-DD HH:MM)', new Date(Date.now()+86400000).toISOString().slice(0,16).replace('T',' '));
+    if(!choice) return; const when = new Date(choice.replace(' ','T'));
+    if(isNaN(when)) { showToast('Enter a valid date and time'); return; }
+    applyToSelected(e=>{e.snoozedUntil=when.toISOString();}); showToast('Conversation snoozed'); render();
+  });
+  document.getElementById('moveSelected').addEventListener('click', ()=>{
+    const target = prompt('Move selected messages to: Inbox, Archive, Spam or Trash', 'Archive'); if(!target) return;
+    const v=target.toLowerCase();
+    if(!['inbox','archive','spam','trash'].includes(v)){showToast('Choose Inbox, Archive, Spam or Trash');return;}
+    applyToSelected(e=>{e.archived=v==='archive';e.spam=v==='spam';e.deleted=v==='trash';if(v==='inbox'){e.archived=false;e.deleted=false;e.spam=false;}}); showToast('Messages moved'); render();
+  });
+  document.getElementById('labelSelected').addEventListener('click', ()=>{
+    const label=prompt('Apply label name'); if(!label) return;
+    applyToSelected(e=>{e.customLabels=Array.from(new Set([...(e.customLabels||[]),label]));}); showToast('Label applied'); render();
+  });
+  document.getElementById('moreSelected').addEventListener('click', ()=>{
+    const action=prompt('More actions: Mark unread, Mark important, Remove importance, Restore'); if(!action) return;
+    const a=action.toLowerCase();
+    if(a==='mark unread') applyToSelected(e=>e.read=false);
+    else if(a==='mark important') applyToSelected(e=>e.important=true);
+    else if(a==='remove importance') applyToSelected(e=>e.important=false);
+    else if(a==='restore') applyToSelected(e=>{e.deleted=false;e.spam=false;e.archived=false;});
+    else {showToast('Action not recognised');return;}
+    showToast('Action completed'); render();
   });
 
   // pagination
@@ -605,10 +704,26 @@ function initEvents(){
   });
 }
 
+function persistState(){
+  try { localStorage.setItem('gmail-local-state-v1', JSON.stringify({emails:state.emails, customLabels:state.customLabels||[]})); }
+  catch(error){ console.warn('Local changes could not be saved in this browser.', error); }
+}
+function restoreState(){
+  try {
+    const saved=JSON.parse(localStorage.getItem('gmail-local-state-v1')||'null');
+    if(saved && Array.isArray(saved.emails)){
+      const byId=new Map(saved.emails.map(e=>[String(e.id),e]));
+      state.emails=state.emails.map(base=>byId.get(String(base.id))||base);
+      saved.emails.filter(e=>!state.emails.some(base=>String(base.id)===String(e.id))).forEach(e=>state.emails.push(e));
+      state.customLabels=saved.customLabels||[];
+    }
+  } catch(error){ console.warn('Saved browser state could not be restored.', error); }
+}
 function render(){
   renderTabs();
   renderList();
   renderSidebarCounts();
+  persistState();
 }
 
 
@@ -644,6 +759,7 @@ async function loadSheetEmails(){
 
 // -------------------- init --------------------
 document.addEventListener('DOMContentLoaded', ()=>{
+  restoreState();
   const theme = localStorage.getItem('gmail-theme') || 'light';
   applyTheme(theme);
   document.getElementById('themeToggle').addEventListener('click', ()=>{

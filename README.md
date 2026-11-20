@@ -2,35 +2,34 @@
 
 ## Project files
 
-- `index.html` — page structure
-- `styles.css` — layout and theme styling
-- `app.js` — inbox interactions
-- `data.js` — existing email records
-- `assets/` — supplied logo and profile image
-- `sheets-config.js` — Google Sheets connection URL
-- `google-apps-script/Code.gs` — read-only endpoint for the email sheet
+- `index.html` — page structure and navigation
+- `styles.css` — layout, responsive styling and themes
+- `app.js` — inbox, selection, navigation and message actions
+- `data.js` — 377 existing email records
+- `assets/` — header logo, browser icon and profile image
+- `sheets-config.js` — Google Sheets connection setting
+- `google-apps-script/` — read-only spreadsheet endpoint files
 
-## Publish on GitHub Pages
+## Publish the updated website
 
-1. Create a new GitHub repository and upload the contents of this folder.
-2. Open the repository settings, choose Pages, and publish from the main branch root.
-3. Open the published site and verify the inbox layout.
+1. Download and extract this ZIP.
+2. Open the existing `Gmail` repository on GitHub.
+3. Upload the contents of this folder to the repository root, replacing the matching project files and retaining the folder structure.
+4. Commit the changes to the `main` branch.
+5. Wait for GitHub Pages to deploy, then hard-refresh the website with `Ctrl + Shift + R`.
 
-## Connect Google Sheets
+Keep the repository's Pages setting on the `main` branch and `/ (root)`.
 
-1. Create a Google Sheet and name its first tab `Emails`.
-2. Add the column headings from `google-apps-script/Emails.csv` as the first row.
-3. Open Extensions → Apps Script. Replace the editor contents with `google-apps-script/Code.gs` and save.
-4. Choose Deploy → New deployment → Web app. Set execution to your account and access to anyone. Deploy and copy the web app URL.
-5. Paste that URL into `sheets-config.js` as the value of `window.SHEETS_API_URL`. Commit the change to GitHub.
-6. Add one row per email in the private spreadsheet. The website reads the rows and displays new records.
+## Inbox behaviour
 
-The spreadsheet remains private. The published website can display its email rows, so any information entered there should be considered public to site visitors. The endpoint is read-only; it does not expose a spreadsheet editing interface.
+The website supports category filtering, unread counts, email selection, bulk actions, archive, Trash, Spam, snoozing, All Mail, custom labels, drafts and local browser persistence. The category values in `data.js` remain intact; category badges are hidden in the message rows.
 
-## Sending
+Email actions and newly composed messages are stored in the visitor's browser. The Send action adds a message to the local Sent folder; it does not deliver email to an external recipient.
 
-The Send action adds the composed message to the local Sent view. It does not deliver an email to the recipient.
+## Google Sheets
 
-## Account management
+The existing `sheets-config.js` and Apps Script files are retained. If a sheet endpoint is configured, the website can read its rows. The published website displays email content to visitors, so information shown on the public site should be treated as public.
 
-The account-management link opens Google's account page in a new tab. The website does not authenticate visitors with Google.
+## Account access
+
+The account links open Google's account pages. This website does not authenticate visitors with Google or collect Google passwords.
