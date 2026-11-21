@@ -10,7 +10,7 @@ const ACCOUNT = {
   email: "719MM1041@nitrkl.ac.in",
   avatarColor: "#4285F4",
   otherAccounts: [
-    { name: "Aman Beta", email: "amanbeta115@gmail.com", avatarColor: "#8430ce" }
+    { name: "AmanBeta", email: "amanbeta115@gmail.com", avatarColor: "#8430ce" }
   ],
   storagePercent: 16,
   storageTotal: "15 GB"
@@ -331,6 +331,7 @@ function openEmail(id){
   if(email.isDraft){ openCompose({to:email.to||'',cc:email.cc||'',bcc:email.bcc||'',subject:email.subject==='(no subject)'?'':email.subject,body:email.body||'',draftId:email.id,mode:email.composeMode||'new',replyTo:email.replyTo||null}); return; }
   email.read = true;
   state.openEmailId = id;
+  updateBrowserTitle();
 
   document.getElementById('emailList').style.display = 'none';
   document.getElementById('tabs').style.display = 'none';
@@ -405,6 +406,7 @@ function openEmail(id){
 
 function closeDetail(){
   state.openEmailId = null;
+  updateBrowserTitle();
   document.getElementById('emailDetail').hidden = true;
   document.getElementById('emailList').style.display = '';
   document.getElementById('listToolbar').style.display = '';
@@ -424,6 +426,7 @@ function openCompose({to='',cc='',bcc='',subject='',body='',draftId=null,mode='n
   if(body){ if(/<([a-z][\s\S]*?)>/i.test(body)) editor.innerHTML=safeMessageHtml(body); else editor.textContent=body; }
   document.getElementById('composeAttachmentList').textContent='';
   editor.focus();
+  updateBrowserTitle();
 }
 function closeCompose(){
   const win=document.getElementById('composeWindow');
@@ -445,7 +448,7 @@ function renderAccountPopup(){
   document.getElementById('accountEmailText').textContent = ACCOUNT.email;
   document.getElementById('accountFirstName').textContent = displayName;
   const photo = document.getElementById('accountPhoto');
-  photo.textContent = initials(ACCOUNT.name);
+  photo.innerHTML = '<img src="assets/my-pic.jpg" alt="Aman Gaurav Sethi">';
   photo.style.background = ACCOUNT.avatarColor;
 
   document.getElementById('otherAccountsList').innerHTML = ACCOUNT.otherAccounts.map(acc => `
@@ -678,6 +681,9 @@ function initEvents(){
     renderList();
   });
 
+  document.getElementById('refreshListBtn')?.addEventListener('click', ()=>{ render(); showToast('Inbox refreshed'); });
+  document.getElementById('defaultMoreBtn')?.addEventListener('click', ()=>showToast('No additional actions'));
+
   // bulk toolbar actions
   document.getElementById('archiveSelected').addEventListener('click', ()=>{
     applyToSelected(e=>e.archived=true);
@@ -752,10 +758,31 @@ function restoreState(){
     }
   } catch(error){ console.warn('Saved browser state could not be restored.', error); }
 }
+function updateBrowserTitle(){
+  const unread = state.emails.filter(e => !e.read && !e.deleted && !e.spam && !e.archived && !e.isDraft && !e.sentByMe && e.folder !== 'sent').length;
+  let label = 'Gmail';
+  const compose = document.getElementById('composeWindow');
+  const detailEmail = state.emails.find(e => String(e.id) === String(state.openEmailId));
+  if (compose && !compose.hidden) {
+    const mode = closeCompose.mode || 'new';
+    label = mode === 'reply' ? 'Reply' : mode === 'forward' ? 'Forward' : 'New Message';
+  } else if (detailEmail) {
+    label = `${detailEmail.subject || '(no subject)'} – Gmail`;
+  } else if (state.search) {
+    label = 'Search results – Gmail';
+  } else {
+    const names = {inbox:'Gmail', starred:'Starred – Gmail', sent:'Sent – Gmail', important:'Important – Gmail', snoozed:'Snoozed – Gmail', drafts:'Drafts – Gmail', purchases:'Purchases – Gmail', scheduled:'Scheduled – Gmail', allmail:'All Mail – Gmail', spam:'Spam – Gmail', trash:'Trash – Gmail'};
+    label = names[state.filter] || (state.filter.startsWith('label:') ? `${state.filter.slice(6)} – Gmail` : `${state.filter} – Gmail`);
+  }
+  if (label === 'Gmail' && unread > 0) label = `(${unread}) Gmail`;
+  document.title = label;
+}
+
 function render(){
   renderTabs();
   renderList();
   renderSidebarCounts();
+  updateBrowserTitle();
   persistState();
 }
 
