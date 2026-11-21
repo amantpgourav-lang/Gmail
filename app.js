@@ -33,7 +33,8 @@ let state = {
   search: "",
   page: 0,
   selected: new Set(),
-  openEmailId: null
+  openEmailId: null,
+  customLabels: ["Security", "Unwanted"]
 };
 
 // -------------------- helpers --------------------
@@ -190,15 +191,21 @@ function getFilteredEmails(){
 
 // -------------------- rendering --------------------
 function renderSidebarCounts(){
-  const unread = state.emails.filter(e=>!e.read && !e.archived && !e.deleted && !e.spam && !e.sentByMe && !e.snoozedUntil).length;
-  document.getElementById('inboxCount').textContent = unread > 0 ? unread : "";
-  const counts={Social:0,Updates:0,Forums:0,Promotions:0};
-  state.emails.forEach(e=>{if(counts[e.label]!==undefined && !e.read && !e.deleted && !e.archived && !e.spam) counts[e.label]++;});
+  const visible = e => !e.deleted && !e.archived && !e.spam && !e.snoozedUntil && !e.sentByMe && e.tab !== 'sent';
+  const unread = state.emails.filter(e=>!e.read && visible(e)).length;
+  const setCount = (id, value) => { const node=document.getElementById(id); if(node) node.textContent=value>0?value:''; };
+  setCount('inboxCount', unread);
+  setCount('draftCount', state.emails.filter(e=>e.isDraft && !e.deleted).length);
+  setCount('purchasesCount', state.emails.filter(e=>/order|purchase|payment|receipt|delivery|booking/i.test((e.subject||'')+' '+(e.preview||'')) && !e.deleted && !e.archived).length);
+  setCount('spamCount', state.emails.filter(e=>e.spam && !e.deleted).length);
+  const counts={Social:0,Updates:0,Promotions:0};
+  state.emails.forEach(e=>{if(counts[e.label]!==undefined && !e.read && visible(e)) counts[e.label]++;});
+  setCount('socialCount',counts.Social); setCount('updatesCount',counts.Updates); setCount('promotionsCount',counts.Promotions);
 }
 
 function renderLabels(){
   const el = document.getElementById('labelList');
-  const labels = Array.from(new Set([...getLabels(), ...(state.customLabels||[])]));
+  const labels = Array.from(new Set(state.customLabels || []));
   el.innerHTML = labels.map(l => `
     <li class="nav-item" data-filter="label:${l}">
       <span class="label-dot" style="background:${LABEL_COLORS[l]||'#999'}"></span>
@@ -217,6 +224,11 @@ function renderLabels(){
       render();
     });
   });
+  const moreBtn = document.getElementById('labelMore');
+  const expanded = el.classList.contains('expanded');
+  moreBtn.hidden = labels.length <= 1;
+  moreBtn.textContent = expanded ? 'Less' : 'More';
+  moreBtn.setAttribute('aria-expanded', String(expanded));
 }
 
 function setActiveNav(activeEl){
@@ -535,7 +547,13 @@ function initEvents(){
   // menu toggle (collapse sidebar)
   document.getElementById('sidebarMore').addEventListener('click', ()=>{
     const nav=document.getElementById('extraNav'); nav.classList.toggle('expanded');
-    document.getElementById('sidebarMore').textContent=nav.classList.contains('expanded')?'Less':'More';
+    const btn=document.getElementById('sidebarMore');
+    btn.textContent=nav.classList.contains('expanded')?'Less':'More';
+    btn.setAttribute('aria-expanded', String(nav.classList.contains('expanded')));
+  });
+  document.getElementById('labelMore').addEventListener('click', ()=>{
+    const list=document.getElementById('labelList'); list.classList.toggle('expanded');
+    renderLabels();
   });
   document.getElementById('menuToggle').addEventListener('click', ()=>{
     document.getElementById('sidebar').classList.toggle('collapsed');
@@ -754,7 +772,7 @@ function restoreState(){
       const byId=new Map(saved.emails.map(e=>[String(e.id),e]));
       state.emails=state.emails.map(base=>byId.get(String(base.id))||base);
       saved.emails.filter(e=>!state.emails.some(base=>String(base.id)===String(e.id))).forEach(e=>state.emails.push(e));
-      state.customLabels=saved.customLabels||[];
+      state.customLabels=(saved.customLabels && saved.customLabels.length) ? saved.customLabels : ['Security','Unwanted'];
     }
   } catch(error){ console.warn('Saved browser state could not be restored.', error); }
 }

@@ -571,3 +571,20 @@ body.dark-theme .compose-recipient-line,body.dark-theme .compose-field{border-co
 .storage-info{margin:10px 8px 8px;min-height:48px;}
 .account-footer{border-top:0;padding:8px 4px 4px;}
 @media(max-width:480px){.account-popup{right:8px;width:min(360px,calc(100vw - 16px));}}
+
+
+/* Original Gmail sidebar hierarchy: primary navigation, expandable More,
+   then a separate custom Labels section with its own More/Less control. */
+#extraNav:not(.expanded) .nav-item{display:none;}
+#extraNav.expanded .nav-item{display:flex;}
+#labelList:not(.expanded) .nav-item:nth-child(n+2){display:none;}
+#labelList.expanded .nav-item{display:flex;}
+.sidebar-more{display:flex;align-items:center;min-height:32px;margin:2px 8px 8px 52px;padding:4px 12px;border-radius:18px;color:var(--text-secondary);font-size:13px;text-align:left;width:calc(100% - 60px);}
+.sidebar-more:hover{background:var(--hover);}
+.label-more{margin-top:0;margin-bottom:8px;}
+.labels-heading{margin-top:2px;padding-top:10px;padding-bottom:8px;}
+.extra-nav .nav-item{gap:16px;}
+.label-list .nav-item{height:32px;}
+@media(max-width:600px){
+  .sidebar-more{margin-left:20px;width:calc(100% - 28px);}
+}
