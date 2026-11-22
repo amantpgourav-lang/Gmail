@@ -337,10 +337,30 @@ function composeBodyHtml(){return document.getElementById('composeBody').innerHT
 function composeBodyText(){return document.getElementById('composeBody').innerText.trim();}
 
 
-function openEmail(id){
-  const email = state.emails.find(e=>e.id===id);
+const NAVIGATION_DELAY_MS = 100;
+let navigationTimer = null;
+
+function setEmailUrl(id, {replace=false} = {}){
+  const url = new URL(window.location.href);
+  url.hash = `email/${encodeURIComponent(String(id))}`;
+  if (replace) history.replaceState({emailId:String(id)}, '', url);
+  else history.pushState({emailId:String(id)}, '', url);
+}
+
+function setInboxUrl({replace=false} = {}){
+  const url = new URL(window.location.href);
+  url.hash = '';
+  if (replace) history.replaceState({}, '', url);
+  else history.pushState({}, '', url);
+}
+
+function openEmail(id, {fromHistory=false, immediate=false} = {}){
+  const email = state.emails.find(e=>String(e.id)===String(id));
   if (!email) return;
   if(email.isDraft){ openCompose({to:email.to||'',cc:email.cc||'',bcc:email.bcc||'',subject:email.subject==='(no subject)'?'':email.subject,body:email.body||'',draftId:email.id,mode:email.composeMode||'new',replyTo:email.replyTo||null}); return; }
+  if (!fromHistory) setEmailUrl(email.id);
+  if (navigationTimer) clearTimeout(navigationTimer);
+  const showEmail = ()=>{
   email.read = true;
   state.openEmailId = id;
   updateBrowserTitle();
@@ -414,15 +434,34 @@ function openEmail(id){
 
   renderSidebarCounts();
   renderList();
+  };
+  if (immediate) showEmail();
+  else navigationTimer = setTimeout(showEmail, NAVIGATION_DELAY_MS);
 }
 
-function closeDetail(){
+function closeDetail({fromHistory=false, immediate=false} = {}){
+  if (!fromHistory && state.openEmailId !== null && location.hash.startsWith('#email/')) setInboxUrl();
+  if (navigationTimer) clearTimeout(navigationTimer);
+  const hideEmail = ()=>{
   state.openEmailId = null;
   updateBrowserTitle();
   document.getElementById('emailDetail').hidden = true;
   document.getElementById('emailList').style.display = '';
   document.getElementById('listToolbar').style.display = '';
   renderTabs();
+  };
+  if (immediate) hideEmail();
+  else navigationTimer = setTimeout(hideEmail, NAVIGATION_DELAY_MS);
+}
+
+function syncEmailFromUrl(){
+  const match = location.hash.match(/^#email\/(.+)$/);
+  if (match){
+    const id = decodeURIComponent(match[1]);
+    if (String(state.openEmailId) !== id) openEmail(id, {fromHistory:true});
+  } else if (state.openEmailId !== null){
+    closeDetail({fromHistory:true});
+  }
 }
 
 // -------------------- compose --------------------
@@ -643,7 +682,10 @@ function initEvents(){
   document.getElementById('createLabelPlus').addEventListener('click', createLabel);
 
   // back button from detail view
-  document.getElementById('backBtn').addEventListener('click', closeDetail);
+  document.getElementById('backBtn').addEventListener('click', ()=>{
+    if (location.hash.startsWith('#email/')) history.back();
+    else closeDetail();
+  });
 
   // close the "show details" popup when clicking outside it
   document.addEventListener('click', (ev)=>{
@@ -848,5 +890,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
   renderLabels();
   initEvents();
   render();
+  window.addEventListener('popstate', syncEmailFromUrl);
+  window.addEventListener('hashchange', syncEmailFromUrl);
+  if (location.hash.startsWith('#email/')) syncEmailFromUrl();
   loadSheetEmails();
 });
